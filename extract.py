@@ -1,53 +1,86 @@
-import fitz
+"""
+Steps 1 & 2: Extract text and images from PDFs
+"""
+import fitz  # PyMuPDF
 import io
 from PIL import Image
 
-fitz.TOOLS.mupdf_display_errors(False)
 
-
-def extract_pdf_text(file):
-    """Extract all text from a PDF file."""
-    text = ""
-    file.seek(0)
-    doc = fitz.open(stream=file.read(), filetype="pdf")
+def extract_text_from_pdf(pdf_path):
+    """
+    Extract all text from a PDF file
     
-    for page in doc:
-        text += page.get_text()
+    Args:
+        pdf_path: Path to the PDF file
+    
+    Returns:
+        str: Extracted text content
+    """
+    print(f"\n📄 Extracting text from: {pdf_path}")
+    
+    doc = fitz.open(pdf_path)
+    text = ""
+    
+    for page_num in range(len(doc)):
+        page = doc[page_num]
+        page_text = page.get_text()
+        text += page_text
+        print(f"   Page {page_num + 1}: {len(page_text)} characters")
     
     doc.close()
+    
+    print(f"✅ Total text extracted: {len(text)} characters\n")
     return text
 
 
-def extract_images_from_pdf(file):
-    """Extract images from PDF with metadata."""
-    images = []
-    file.seek(0)
-    doc = fitz.open(stream=file.read(), filetype="pdf")
+def extract_images_from_pdf(pdf_path):
+    """
+    Extract all images from a PDF file
     
-    for page_num, page in enumerate(doc):
-        for img_index, img in enumerate(page.get_images(full=True)):
-            xref = img[0]
+    Args:
+        pdf_path: Path to the PDF file
+    
+    Returns:
+        list: List of dictionaries containing image data
+              [{'image': bytes, 'width': int, 'height': int}, ...]
+    """
+    print(f"\n🖼️  Extracting images from: {pdf_path}")
+    
+    doc = fitz.open(pdf_path)
+    images = []
+    
+    for page_num in range(len(doc)):
+        page = doc[page_num]
+        image_list = page.get_images(full=True)
+        
+        print(f"   Page {page_num + 1}: {len(image_list)} images found")
+        
+        for img_index, img_info in enumerate(image_list):
+            xref = img_info[0]
+            
             try:
-                base = doc.extract_image(xref)
-                img_bytes = base["image"]
-                width = base["width"]
-                height = base["height"]
+                base_image = doc.extract_image(xref)
+                image_bytes = base_image["image"]
+                image_ext = base_image["ext"]
                 
-                # Filter out small images (logos, icons)
-                if width < 200 or height < 200:
-                    continue
+                # Get image dimensions
+                img = Image.open(io.BytesIO(image_bytes))
+                width, height = img.size
                 
-                # Store image with metadata
                 images.append({
-                    'image': io.BytesIO(img_bytes),
+                    'image': image_bytes,
                     'width': width,
                     'height': height,
-                    'page': page_num + 1,
-                    'index': img_index
+                    'ext': image_ext,
+                    'page': page_num + 1
                 })
+                
+                print(f"      Image {img_index + 1}: {width}x{height} ({image_ext})")
+            
             except Exception as e:
-                print(f"Error extracting image on page {page_num + 1}: {e}")
-                continue
+                print(f"      ⚠️  Could not extract image {img_index + 1}: {str(e)}")
     
     doc.close()
+    
+    print(f"✅ Total images extracted: {len(images)}\n")
     return images

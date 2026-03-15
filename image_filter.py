@@ -1,35 +1,66 @@
+"""
+Step 3: Filter relevant images from extracted images
+"""
 from PIL import Image
 import io
 
 
 def filter_relevant_images(images):
-    """Filter out irrelevant images (logos, small graphics)."""
-    relevant = []
+    """
+    Filter extracted images to keep only relevant ones
     
-    for img_data in images:
+    Filtering criteria:
+    1. Minimum size (300x300 pixels)
+    2. Reasonable aspect ratio (0.3 to 3.0)
+    3. Not blank/white pages (average brightness < 240)
+    
+    Args:
+        images: List of image dictionaries from extract.py
+    
+    Returns:
+        list: Filtered list of relevant images (as file paths or PIL Image objects)
+    """
+    
+    print(f"\n🔍 Filtering {len(images)} images...")
+    
+    relevant_images = []
+    
+    for i, img_data in enumerate(images):
         try:
-            img_data['image'].seek(0)
-            img = Image.open(img_data['image'])
-            
+            # Get image properties
             width = img_data['width']
             height = img_data['height']
+            image_bytes = img_data['image']
             
-            # Filter criteria
-            is_large_enough = width >= 300 and height >= 300
-            is_reasonable_aspect = 0.3 <= (width / height) <= 3.0
+            # Filter 1: Minimum size
+            if width < 300 or height < 300:
+                print(f"   ❌ Image {i+1}: Too small ({width}x{height})")
+                continue
             
-            # Check if image has sufficient content (not mostly white/blank)
+            # Filter 2: Aspect ratio
+            aspect_ratio = width / height
+            if aspect_ratio < 0.3 or aspect_ratio > 3.0:
+                print(f"   ❌ Image {i+1}: Bad aspect ratio ({aspect_ratio:.2f})")
+                continue
+            
+            # Filter 3: Check if not blank (brightness check)
+            img = Image.open(io.BytesIO(image_bytes))
             img_gray = img.convert('L')
             pixels = list(img_gray.getdata())
             avg_brightness = sum(pixels) / len(pixels)
-            has_content = avg_brightness < 240  # Not mostly white
             
-            if is_large_enough and is_reasonable_aspect and has_content:
-                img_data['image'].seek(0)
-                relevant.append(img_data)
+            if avg_brightness > 240:  # Too bright = likely blank page
+                print(f"   ❌ Image {i+1}: Likely blank page (brightness: {avg_brightness:.1f})")
+                continue
             
+            # Image passed all filters
+            print(f"   ✅ Image {i+1}: KEPT ({width}x{height}, brightness: {avg_brightness:.1f})")
+            relevant_images.append(img)
+        
         except Exception as e:
-            print(f"Error filtering image: {e}")
+            print(f"   ⚠️  Image {i+1}: Error during filtering - {str(e)}")
             continue
     
-    return relevant
+    print(f"\n✅ Filtering complete: {len(relevant_images)} relevant images kept")
+    
+    return relevant_images
