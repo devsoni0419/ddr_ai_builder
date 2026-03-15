@@ -194,7 +194,7 @@ def main():
         
         if generate_button:
             # Progress indicators
-            with st.spinner("🤖 Processing reports... This may take 30-60 seconds..."):
+            with st.spinner("🤖 Processing reports..."):
                 try:
                     # Run the agent
                     result = run_agent(inspection_file, thermal_file)
